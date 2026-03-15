@@ -86,7 +86,7 @@ export default function ClientDetailPage() {
         <div className="mb-6 flex items-center gap-4">
           <button
             onClick={() => navigate("/")}
-            className="rounded-full p-2 hover:bg-gray-200"
+            className="rounded-full p-2 hover:bg-gray-200 cursor-pointer"
           >
             <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
@@ -145,7 +145,7 @@ export default function ClientDetailPage() {
                 setEditingContact(null)
                 setContactModalOpen(true)
               }}
-              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 cursor-pointer"
             >
               <PlusIcon className="h-4 w-4" />
               Novo contato
@@ -210,7 +210,7 @@ export default function ClientDetailPage() {
             </h2>
             <button
               onClick={() => setInteractionModalOpen(true)}
-              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 cursor-pointer"
             >
               <PlusIcon className="h-4 w-4" />
               Adicionar interação
