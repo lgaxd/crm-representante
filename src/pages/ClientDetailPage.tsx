@@ -58,19 +58,6 @@ export default function ClientDetailPage() {
     }
   }
 
-  // Interações
-  async function handleAddInteraction(data: any) {
-    try {
-      await pb.collection("interactions").create({
-        ...data,
-        client: id,
-      })
-      loadData() // recarrega
-    } catch (error) {
-      alert("Erro ao salvar interação.")
-    }
-  }
-
   if (loading) {
     return <div className="p-8 text-center">Carregando...</div>
   }
@@ -183,7 +170,7 @@ export default function ClientDetailPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteContact(contact.id)}
-                        className="text-gray-500 hover:text-red-600"
+                        className="text-gray-500 hover:text-red-600 cursor-pointer"
                       >
                         <TrashIcon className="h-4 w-4" />
                       </button>
