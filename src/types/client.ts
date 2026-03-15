@@ -5,4 +5,6 @@ export interface Client {
   city: string
   state: string
   status: string
+  site?: string
+  address?: string
 }
