@@ -1,4 +1,5 @@
 import type { Client } from "../../types/client"
+import BigButton from "../BigButton"
 
 interface Props {
   clients: Client[]
@@ -55,6 +56,8 @@ export default function ClientsSidebar({
         </button>
 
       ))}
+
+      <BigButton text="Voltar ao dashboard" to="/" />
 
     </aside>
   )
