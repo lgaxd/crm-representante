@@ -9,12 +9,11 @@ import { DealSection } from "../components/client-detail/DealSection"
 import { ContactTable } from "../components/client-detail/ContactTable"
 import { InteractionList } from "../components/client-detail/InteractionList"
 
-import {
-  ArrowLeftIcon
-} from "@heroicons/react/24/outline"
+import { ArrowLeftIcon } from "@heroicons/react/24/outline"
 
 import ContactModal from "../components/ContactModal"
 import InteractionModal from "../components/InteractionModal"
+import DealModal from "../components/DealModal"
 
 export default function ClientDetailPage() {
   const { id } = useParams()
@@ -26,10 +25,16 @@ export default function ClientDetailPage() {
   const [deals, setDeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Modais de Contato e Interação
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [interactionModalOpen, setInteractionModalOpen] = useState(false)
   const [editingInteraction, setEditingInteraction] = useState<Interaction | null>(null)
+
+  // Estados do novo DealModal
+  const [dealModalOpen, setDealModalOpen] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<any | null>(null)
+  const [pendingStage, setPendingStage] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) loadData()
@@ -57,7 +62,7 @@ export default function ClientDetailPage() {
     }
   }
 
-  // REGRA 1: Ao salvar interação, verificar se muda para Prospect
+  // REGRA 1: Ao salvar interação, se for a primeira e status for Discovery -> Prospect
   async function handleInteractionSaved() {
     if (client?.status === "discovery" && interactions.length === 0) {
       await pb.collection("clients").update(client.id, { status: "prospect" })
@@ -67,7 +72,7 @@ export default function ClientDetailPage() {
     setEditingInteraction(null)
   }
 
-  // REGRA 2: Alterar status manualmente
+  // REGRA 2: Alterar status manualmente + Gerar deal automático se mudar para Lead pela 1ª vez
   async function handleStatusChange(newStatus: string) {
     if (!client) return
     const oldStatus = client.status
@@ -77,38 +82,59 @@ export default function ClientDetailPage() {
 
       if (newStatus === "lead" && oldStatus !== "lead") {
         const existingDeals = await pb.collection("deals").getFullList({ filter: `client="${client.id}"` })
-        if (existingDeals.length === 0) await createDeal("lead")
+        if (existingDeals.length === 0) {
+          // Abre o modal automaticamente para definir o valor do deal de lead
+          handleOpenCreateDeal("lead")
+        }
       }
     } catch {
       alert("Erro ao atualizar status")
     }
   }
 
-  // REGRA 3: Lógica de criação de Deal e impacto no Status
-  async function createDeal(stage: string) {
+  // --- LÓGICA DO DEAL MODAL ---
+
+  function handleOpenCreateDeal(stage: string) {
+    setPendingStage(stage)
+    setSelectedDeal(null)
+    setDealModalOpen(true)
+  }
+
+  function handleOpenEditDeal(deal: any) {
+    setSelectedDeal(deal)
+    setPendingStage(null)
+    setDealModalOpen(true)
+  }
+
+  async function handleSaveDeal(value: number) {
     if (!client) return
+
     try {
-      const valStr = prompt("Valor do deal (opcional):", "0")
-      const value = parseFloat(valStr || "0")
+      if (selectedDeal) {
+        // MODO EDIÇÃO
+        await pb.collection("deals").update(selectedDeal.id, { value })
+      } else if (pendingStage) {
+        // MODO CRIAÇÃO (REGRA 3: Impacto do Deal no status do Cliente)
+        await pb.collection("deals").create({
+          client: client.id,
+          stage: pendingStage,
+          value: value
+        })
 
-      await pb.collection("deals").create({
-        client: client.id,
-        stage: stage,
-        value: value
-      })
+        let newStatus = client.status
+        if (pendingStage === "lead") newStatus = "lead"
+        if (pendingStage === "negociacao" || pendingStage === "pedido") newStatus = "negociacao"
+        if (pendingStage === "ganho") newStatus = "ativo"
+        if (pendingStage === "perdido") newStatus = "lead"
 
-      let newStatus = client.status
-      if (stage === "lead") newStatus = "lead"
-      if (stage === "negociacao" || stage === "pedido") newStatus = "negociacao"
-      if (stage === "ganho") newStatus = "ativo"
-      if (stage === "perdido") newStatus = "lead"
-
-      if (newStatus !== client.status) {
-        await pb.collection("clients").update(client.id, { status: newStatus })
+        if (newStatus !== client.status) {
+          await pb.collection("clients").update(client.id, { status: newStatus })
+        }
       }
       loadData()
-    } catch {
-      alert("Erro ao criar deal")
+      setDealModalOpen(false)
+    } catch (error) {
+      alert("Erro ao salvar deal")
     }
   }
 
@@ -122,16 +148,7 @@ export default function ClientDetailPage() {
     }
   }
 
-  async function editDeal(deal: any) {
-    const newValue = prompt("Novo valor:", deal.value)
-    if (newValue === null) return
-    try {
-      await pb.collection("deals").update(deal.id, { value: parseFloat(newValue) })
-      loadData()
-    } catch {
-      alert("Erro ao editar deal")
-    }
-  }
+  // --- FIM LÓGICA DEAL ---
 
   async function handleDeleteContact(contactId: string) {
     if (!confirm("Excluir contato?")) return
@@ -159,26 +176,28 @@ export default function ClientDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-6xl">
-        {/* Header estático ou também componentizado */}
         <header className="mb-6 flex items-center gap-4">
-          <button onClick={() => navigate("/")} className="cursor-pointer">
+          <button 
+            onClick={() => navigate("/")} 
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer"
+          >
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
           <h1 className="text-2xl font-bold">{client.name}</h1>
         </header>
 
-        {/* 1. Cards de Informação */}
+        {/* 1. Cards de Informação (Status e Localização) */}
         <ClientInfoCards client={client} onStatusChange={handleStatusChange} />
 
-        {/* 2. Seção de Deals */}
+        {/* 2. Seção de Deals (Componentizada) */}
         <DealSection
           deals={deals}
-          onCreateDeal={createDeal}
-          onEditDeal={editDeal}
+          onCreateDeal={handleOpenCreateDeal}
+          onEditDeal={handleOpenEditDeal}
           onDeleteDeal={deleteDeal}
         />
 
-        {/* 3. Tabela de Contatos */}
+        {/* 3. Tabela de Contatos (Componentizada) */}
         <ContactTable
           contacts={contacts}
           onEdit={(c) => { setEditingContact(c); setContactModalOpen(true); }}
@@ -186,7 +205,7 @@ export default function ClientDetailPage() {
           onAdd={() => { setEditingContact(null); setContactModalOpen(true); }}
         />
 
-        {/* 4. Lista de Interações */}
+        {/* 4. Lista de Interações (Componentizada) */}
         <InteractionList
           interactions={interactions}
           onEdit={(i) => { setEditingInteraction(i); setInteractionModalOpen(true); }}
@@ -195,6 +214,8 @@ export default function ClientDetailPage() {
         />
       </div>
 
+      {/* MODAIS */}
+      
       <ContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
@@ -210,6 +231,14 @@ export default function ClientDetailPage() {
         contacts={contacts}
         interaction={editingInteraction}
         onSave={handleInteractionSaved}
+      />
+
+      <DealModal 
+        isOpen={dealModalOpen}
+        onClose={() => setDealModalOpen(false)}
+        onSave={handleSaveDeal}
+        initialValue={selectedDeal?.value}
+        stage={pendingStage || selectedDeal?.stage}
       />
     </div>
   )

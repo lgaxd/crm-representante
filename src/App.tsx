@@ -4,6 +4,7 @@ import { lazy } from "react"
 const DashboardPage = lazy(() => import("./pages/DashboardPage"))
 const ClientsPage = lazy(() => import("./pages/ClientsPage"))
 const ClientDetailPage = lazy(() => import("./pages/ClientDetailPage"))
+const DealsPage = lazy(() => import("./pages/DealsPage"))
 
 export default function App() {
 
@@ -12,6 +13,8 @@ export default function App() {
       <Routes>
 
         <Route path="/" element={<DashboardPage />} />
+
+        <Route path="/deals" element={<DealsPage />} />
 
         <Route path="/clients" element={<ClientsPage />} />
 
