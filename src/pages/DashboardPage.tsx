@@ -58,22 +58,25 @@ export default function DashboardPage() {
 
       {/* 2. SEÇÃO DE STATUS DOS CLIENTES */}
       <div className="mb-10">
-        <h2 className="text-sm font-bold text-gray-400 uppercase mb-4 text-left tracking-wider">
+        <h2 className="text-sm font-black text-slate-700 uppercase mb-4 text-left tracking-wider">
           Volume de Clientes por Status
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+
+        {/* Mudança: grid-cols-2 no mobile, 4 no tablet e auto-fit no desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-auto-fit gap-4 lg:flex lg:flex-wrap">
           {clientStats.map(s => (
             <button
               key={s.status}
               onClick={() => navigate(`/clients?status=${s.status}`)}
-              className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-500 cursor-pointer transition-all text-left"
+              className="flex-1 min-w-[140px] p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-purple-600 hover:shadow-md cursor-pointer transition-all text-left group"
             >
-              <div className="text-xs text-gray-500 capitalize mb-1 truncate">
-                {s.status === "nao_atender" ? "Não atender" : 
-                 s.status === "negociacao" ? "Negociação" : s.status}
+              <div className="text-[15px] font-black text-slate-500 uppercase mb-1 tracking-tight truncate group-hover:text-purple-600">
+                {s.status === "nao_atender" ? "Não atender" :
+                  s.status === "negociacao" ? "Negociação" : s.status}
               </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-black text-slate-900 flex items-baseline gap-1">
                 {s.count}
+                <span className="text-[10px] font-medium text-slate-400 uppercase">qtd</span>
               </div>
             </button>
           ))}
