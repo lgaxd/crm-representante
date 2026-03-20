@@ -69,6 +69,8 @@ export default function InteractionModal({
 
     try {
 
+      let isNew = !interaction
+
       if (interaction) {
 
         await pb.collection("interactions").update(
@@ -79,6 +81,29 @@ export default function InteractionModal({
       } else {
 
         await pb.collection("interactions").create(data)
+
+      }
+
+      // REGRA 1: primeira interação → virar prospect
+      if (isNew) {
+
+        const existing = await pb.collection("interactions").getFullList({
+          filter: `client="${clientId}"`
+        })
+
+        if (existing.length === 1) {
+
+          const client = await pb.collection("clients").getOne(clientId)
+
+          if (client.status === "discovery") {
+
+            await pb.collection("clients").update(clientId, {
+              status: "prospect"
+            })
+
+          }
+
+        }
 
       }
 

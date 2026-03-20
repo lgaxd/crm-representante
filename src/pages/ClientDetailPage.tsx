@@ -4,417 +4,195 @@ import { useParams, useNavigate } from "react-router-dom"
 import type { Client } from "../types/client"
 import type { Contact } from "../types/contact"
 import type { Interaction } from "../types/interaction"
+import { ClientInfoCards } from "../components/client-detail/ClientInfoCards"
+import { DealSection } from "../components/client-detail/DealSection"
+import { ContactTable } from "../components/client-detail/ContactTable"
+import { InteractionList } from "../components/client-detail/InteractionList"
 
 import {
-  ArrowLeftIcon,
-  PencilIcon,
-  TrashIcon,
-  PlusIcon
+  ArrowLeftIcon
 } from "@heroicons/react/24/outline"
 
 import ContactModal from "../components/ContactModal"
 import InteractionModal from "../components/InteractionModal"
 
 export default function ClientDetailPage() {
-
   const { id } = useParams()
   const navigate = useNavigate()
 
   const [client, setClient] = useState<Client | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [interactions, setInteractions] = useState<Interaction[]>([])
-
+  const [deals, setDeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
-  const [editingInteraction, setEditingInteraction] = useState<Interaction | null>(null)
 
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
-
   const [interactionModalOpen, setInteractionModalOpen] = useState(false)
+  const [editingInteraction, setEditingInteraction] = useState<Interaction | null>(null)
 
   useEffect(() => {
-
-    if (!id) return
-
-    loadData()
-
+    if (id) loadData()
   }, [id])
 
   async function loadData() {
-
     if (!id) return
-
     try {
-
-      const [clientData, contactsData, interactionsData] = await Promise.all([
+      setLoading(true)
+      const [clientData, contactsData, interactionsData, dealsData] = await Promise.all([
         pb.collection("clients").getOne(id),
         pb.collection("contacts").getFullList({ filter: `client="${id}"` }),
-        pb.collection("interactions").getFullList({
-          filter: `client="${id}"`,
-          sort: "-date"
-        })
+        pb.collection("interactions").getFullList({ filter: `client="${id}"`, sort: "-date" }),
+        pb.collection("deals").getFullList({ filter: `client="${id}"`, sort: "-created" })
       ])
 
       setClient(clientData as unknown as Client)
       setContacts(contactsData as unknown as Contact[])
       setInteractions(interactionsData as unknown as Interaction[])
-
+      setDeals(dealsData)
     } catch (error) {
-
-      console.error("Erro ao carregar dados:", error)
-
+      console.error("Erro ao carregar:", error)
     } finally {
-
       setLoading(false)
-
     }
+  }
 
+  // REGRA 1: Ao salvar interação, verificar se muda para Prospect
+  async function handleInteractionSaved() {
+    if (client?.status === "discovery" && interactions.length === 0) {
+      await pb.collection("clients").update(client.id, { status: "prospect" })
+    }
+    loadData()
+    setInteractionModalOpen(false)
+    setEditingInteraction(null)
+  }
+
+  // REGRA 2: Alterar status manualmente
+  async function handleStatusChange(newStatus: string) {
+    if (!client) return
+    const oldStatus = client.status
+    try {
+      await pb.collection("clients").update(client.id, { status: newStatus })
+      setClient({ ...client, status: newStatus })
+
+      if (newStatus === "lead" && oldStatus !== "lead") {
+        const existingDeals = await pb.collection("deals").getFullList({ filter: `client="${client.id}"` })
+        if (existingDeals.length === 0) await createDeal("lead")
+      }
+    } catch {
+      alert("Erro ao atualizar status")
+    }
+  }
+
+  // REGRA 3: Lógica de criação de Deal e impacto no Status
+  async function createDeal(stage: string) {
+    if (!client) return
+    try {
+      const valStr = prompt("Valor do deal (opcional):", "0")
+      const value = parseFloat(valStr || "0")
+
+      await pb.collection("deals").create({
+        client: client.id,
+        stage: stage,
+        value: value
+      })
+
+      let newStatus = client.status
+      if (stage === "lead") newStatus = "lead"
+      if (stage === "negociacao" || stage === "pedido") newStatus = "negociacao"
+      if (stage === "ganho") newStatus = "ativo"
+      if (stage === "perdido") newStatus = "lead"
+
+      if (newStatus !== client.status) {
+        await pb.collection("clients").update(client.id, { status: newStatus })
+      }
+      loadData()
+    } catch {
+      alert("Erro ao criar deal")
+    }
+  }
+
+  async function deleteDeal(dealId: string) {
+    if (!confirm("Excluir este deal?")) return
+    try {
+      await pb.collection("deals").delete(dealId)
+      setDeals(deals.filter(d => d.id !== dealId))
+    } catch {
+      alert("Erro ao excluir deal")
+    }
+  }
+
+  async function editDeal(deal: any) {
+    const newValue = prompt("Novo valor:", deal.value)
+    if (newValue === null) return
+    try {
+      await pb.collection("deals").update(deal.id, { value: parseFloat(newValue) })
+      loadData()
+    } catch {
+      alert("Erro ao editar deal")
+    }
   }
 
   async function handleDeleteContact(contactId: string) {
-
-    if (!confirm("Tem certeza que deseja excluir este contato?")) return
-
+    if (!confirm("Excluir contato?")) return
     try {
-
       await pb.collection("contacts").delete(contactId)
-
       setContacts(contacts.filter(c => c.id !== contactId))
-
     } catch {
-
-      alert("Erro ao excluir contato.")
-
+      alert("Erro ao excluir contato")
     }
-
   }
 
-  function editInteraction(interaction: Interaction) {
-
-    setEditingInteraction(interaction)
-
-    setInteractionModalOpen(true)
-
-  }
-
-  async function deleteInteraction(interactionId: string) {
-
-    const confirmed = confirm("Deseja realmente excluir esta interação?")
-
-    if (!confirmed) return
-
+  async function deleteInteraction(id: string) {
+    if (!confirm("Excluir interação?")) return
     try {
-
-      await pb.collection("interactions").delete(interactionId)
-
-      setInteractions(interactions.filter(i => i.id !== interactionId))
-
+      await pb.collection("interactions").delete(id)
+      setInteractions(interactions.filter(i => i.id !== id))
     } catch {
-
-      alert("Erro ao excluir interação")
-
+      alert("Erro ao excluir")
     }
-
   }
 
-  if (loading) {
-    return <div className="p-8 text-center">Carregando...</div>
-  }
-
-  if (!client) {
-    return <div className="p-8 text-center">Cliente não encontrado.</div>
-  }
+  if (loading) return <div className="p-8 text-center">Carregando...</div>
+  if (!client) return <div className="p-8 text-center">Cliente não encontrado.</div>
 
   return (
-
     <div className="min-h-screen bg-gray-50 p-6">
-
       <div className="mx-auto max-w-6xl">
-
-        <div className="mb-6 flex items-center gap-4">
-
-          <button
-            onClick={() => navigate("/")}
-            className="rounded-full p-2 hover:bg-gray-200 cursor-pointer"
-          >
-            <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+        {/* Header estático ou também componentizado */}
+        <header className="mb-6 flex items-center gap-4">
+          <button onClick={() => navigate("/")} className="cursor-pointer">
+            <ArrowLeftIcon className="h-5 w-5" />
           </button>
-
-          <h1 className="text-2xl font-bold text-gray-900">
-            {client.name}
-          </h1>
-
-          <span className="rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-800 capitalize">
-            {client.type?.replace("_", " ")}
-          </span>
-
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-              Localização
-            </h2>
-
-            <p className="text-gray-700">
-              {client.city}, {client.state}
-            </p>
-
-            {client.address && (
-              <p className="mt-1 text-sm text-gray-600">
-                {client.address}
-              </p>
-            )}
-
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-              Status
-            </h2>
-
-            <select
-              value={client.status}
-              onChange={async e => {
-
-                const status = e.target.value
-
-                await pb.collection("clients").update(client.id, { status })
-
-                setClient({ ...client, status })
-
-              }}
-              className="border rounded-lg px-3 py-2"
-            >
-
-              <option value="discovery">Discovery</option>
-              <option value="prospect">Prospect</option>
-              <option value="lead">Lead</option>
-              <option value="negociacao">Negociação</option>
-              <option value="ativo">Ativo</option>
-              <option value="perdido">Perdido</option>
-              <option value="nao_atender">Não atender</option>
-
-            </select>
-
-          </div>
-
-          {client.site && (
-
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                Site
-              </h2>
-
-              <a
-                href={client.site}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:underline"
-              >
-                {client.site}
-              </a>
-
-            </div>
-
-          )}
-
-        </div>
-
-        {/* CONTATOS */}
-
-        <div className="mb-8 rounded-xl border border-gray-200 bg-white">
-
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-
-            <h2 className="text-lg font-semibold text-gray-900">
-              Contatos ({contacts.length})
-            </h2>
-
-            <button
-              onClick={() => {
-                setEditingContact(null)
-                setContactModalOpen(true)
-              }}
-              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 cursor-pointer"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Novo contato
-            </button>
-
-          </div>
-
-          <table className="w-full">
-
-            <thead className="bg-gray-50">
-
-              <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-
-                <th className="px-6 py-3">Nome</th>
-                <th className="px-6 py-3">Cargo</th>
-                <th className="px-6 py-3">Telefone</th>
-                <th className="px-6 py-3">Email</th>
-                <th className="px-6 py-3">WhatsApp</th>
-                <th className="px-6 py-3">Ações</th>
-
-              </tr>
-
-            </thead>
-
-            <tbody className="divide-y divide-gray-200">
-
-              {contacts.map(contact => (
-
-                <tr key={contact.id}>
-
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    {contact.name}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {contact.role || "—"}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {contact.phone || "—"}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {contact.email || "—"}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {contact.whatsapp || "—"}
-                  </td>
-
-                  <td className="px-6 py-4">
-
-                    <div className="flex gap-2">
-
-                      <button
-                        onClick={() => {
-                          setEditingContact(contact)
-                          setContactModalOpen(true)
-                        }}
-                        className="text-gray-500 hover:text-purple-600 cursor-pointer"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteContact(contact.id)}
-                        className="text-gray-500 hover:text-red-600 cursor-pointer"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-
-                    </div>
-
-                  </td>
-
-                </tr>
-
-              ))}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-        {/* INTERAÇÕES */}
-
-        <div className="rounded-xl border border-gray-200 bg-white">
-
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-
-            <h2 className="text-lg font-semibold text-gray-900">
-              Interações ({interactions.length})
-            </h2>
-
-            <button
-              onClick={() => {
-                setEditingInteraction(null)
-                setInteractionModalOpen(true)
-              }}
-              className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 cursor-pointer"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Adicionar interação
-            </button>
-
-          </div>
-
-          <table className="w-full">
-
-            <thead className="bg-gray-50">
-
-              <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-
-                <th className="px-6 py-3">Tipo</th>
-                <th className="px-6 py-3">Descrição</th>
-                <th className="px-6 py-3">Data</th>
-                <th className="px-6 py-3">Ações</th>
-
-              </tr>
-
-            </thead>
-
-            <tbody className="divide-y divide-gray-200">
-
-              {interactions.map(interaction => (
-
-                <tr key={interaction.id}>
-
-                  <td className="px-6 py-4 capitalize text-gray-700">
-                    {interaction.type}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {interaction.description}
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-700">
-                    {new Date(interaction.date).toLocaleDateString("pt-BR")}
-                  </td>
-
-                  <td className="px-6 py-4">
-
-                    <div className="flex gap-2">
-
-                      <button
-                        onClick={() => editInteraction(interaction)}
-                        className="text-gray-500 hover:text-purple-600 cursor-pointer"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        onClick={() => deleteInteraction(interaction.id)}
-                        className="text-gray-500 hover:text-red-600 cursor-pointer"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-
-                    </div>
-
-                  </td>
-
-                </tr>
-
-              ))}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
+          <h1 className="text-2xl font-bold">{client.name}</h1>
+        </header>
+
+        {/* 1. Cards de Informação */}
+        <ClientInfoCards client={client} onStatusChange={handleStatusChange} />
+
+        {/* 2. Seção de Deals */}
+        <DealSection
+          deals={deals}
+          onCreateDeal={createDeal}
+          onEditDeal={editDeal}
+          onDeleteDeal={deleteDeal}
+        />
+
+        {/* 3. Tabela de Contatos */}
+        <ContactTable
+          contacts={contacts}
+          onEdit={(c) => { setEditingContact(c); setContactModalOpen(true); }}
+          onDelete={handleDeleteContact}
+          onAdd={() => { setEditingContact(null); setContactModalOpen(true); }}
+        />
+
+        {/* 4. Lista de Interações */}
+        <InteractionList
+          interactions={interactions}
+          onEdit={(i) => { setEditingInteraction(i); setInteractionModalOpen(true); }}
+          onDelete={deleteInteraction}
+          onAdd={() => { setEditingInteraction(null); setInteractionModalOpen(true); }}
+        />
       </div>
 
       <ContactModal
@@ -422,11 +200,7 @@ export default function ClientDetailPage() {
         onClose={() => setContactModalOpen(false)}
         clientId={id!}
         contact={editingContact}
-        onSave={() => {
-          loadData()
-          setContactModalOpen(false)
-          setEditingContact(null)
-        }}
+        onSave={loadData}
       />
 
       <InteractionModal
@@ -435,15 +209,8 @@ export default function ClientDetailPage() {
         clientId={id!}
         contacts={contacts}
         interaction={editingInteraction}
-        onSave={() => {
-          loadData()
-          setInteractionModalOpen(false)
-          setEditingInteraction(null)
-        }}
+        onSave={handleInteractionSaved}
       />
-
     </div>
-
   )
-
 }
