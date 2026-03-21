@@ -85,6 +85,7 @@ export default function DashboardPage() {
 
       <div className="flex justify-start">
         <BigButton text="Ver todos os clientes" to="/clients" />
+        <BigButton text="Ver todos os pedidos" to="/deals" />
       </div>
     </div>
   )

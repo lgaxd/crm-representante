@@ -1,3 +1,3 @@
-import PocketBase from 'pocketbase'
+import PocketBase from 'pocketbase';
 
 export const pb = new PocketBase(import.meta.env.VITE_URL_POCKETBASE)

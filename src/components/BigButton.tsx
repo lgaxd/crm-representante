@@ -14,7 +14,7 @@ export default function BigButton(props: Props) {
 
     <button
         onClick={() => navigate(props.to)}
-        className="px-6 py-3 bg-purple-600 text-white rounded-lg cursor-pointer"
+        className="px-6 py-3 bg-purple-600 text-white rounded-lg cursor-pointer mr-4"
     >
         {props.text}
     </button>
