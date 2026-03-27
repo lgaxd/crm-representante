@@ -6,6 +6,7 @@ import type { Client } from "../types/client"
 import ClientsSidebar from "../components/clients/ClientsSidebar"
 import ClientSearch from "../components/clients/ClientSearch"
 import ClientsTable from "../components/clients/ClientsTable"
+import ClientModal from "../components/ClientModal"
 
 export default function ClientsPage() {
 
@@ -20,6 +21,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState(
     searchParams.get("status") || ""
   )
+  const [modalOpen, setModalOpen] = useState(false)
 
   const [page, setPage] = useState(1)
 
@@ -199,6 +201,15 @@ export default function ClientsPage() {
           </select>
         </div>
 
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setModalOpen(true)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg cursor-pointer"
+          >
+            + Novo Cliente
+          </button>
+        </div>
+
         <ClientsTable
           clients={paginatedClients}
           onRowClick={(id) =>
@@ -225,11 +236,10 @@ export default function ClientsPage() {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`px-3 py-1 rounded ${
-                  p === page
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-200 cursor-pointer hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded ${p === page
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-200 cursor-pointer hover:bg-gray-300"
+                  }`}
               >
                 {p}
               </button>
@@ -239,6 +249,14 @@ export default function ClientsPage() {
           })}
 
         </div>
+        <ClientModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSave={() => {
+            setModalOpen(false)
+            window.location.reload()
+          }}
+        />
 
       </main>
 

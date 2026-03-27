@@ -3,7 +3,8 @@ import { pb } from "../lib/pocketbase"
 import { useNavigate } from "react-router-dom"
 import type { Client } from "../types/client"
 import BigButton from "../components/BigButton"
-import { PipelineStats } from "../components/dashboard/PipelineStats" // Certifique-se de criar este arquivo
+import { PipelineStats } from "../components/dashboard/PipelineStats"
+import ClientModal from "../components/ClientModal"
 
 const STATUSES = [
   "discovery",
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [deals, setDeals] = useState<any[]>([]) // Estado para os negócios
   const navigate = useNavigate()
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -83,10 +85,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex justify-start">
+      <div className="flex items-center gap-4 mt-10">
         <BigButton text="Ver todos os clientes" to="/clients" />
         <BigButton text="Ver todos os pedidos" to="/deals" />
+        <button
+          onClick={() => setModalOpen(true)}
+          className="px-6 py-3 bg-purple-600 text-white rounded-lg cursor-pointer"
+        >
+          Cadastrar Cliente
+        </button>
       </div>
+      <ClientModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={() => window.location.reload()}
+      />
     </div>
   )
 }
